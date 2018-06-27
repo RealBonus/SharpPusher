@@ -1,0 +1,164 @@
+﻿using System;
+using System.Text;
+using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using Jose;
+using Newtonsoft.Json.Linq;
+using System.Net.Http;
+using System.Threading.Tasks;
+
+namespace SharpPusher
+{
+	public class ApnsPusher: IPusher<ApnsNotification, ApnsResult>
+	{
+		#region Const
+
+		public readonly string SandboxUrl = "https://api.development.push.apple.com";
+		public readonly string ProductionUrl = "https://api.push.apple.com";
+
+		public readonly JwsAlgorithm Algorithm = JwsAlgorithm.ES256;
+		private readonly string AlgorithmAsString = "ES256";
+
+		public event NotificationSuccessHandler<ApnsNotification> OnNotificationSuccess;
+		public event NotificationFailedHandler<ApnsNotification, ApnsResult> OnNotificationFailed;
+
+		#endregion
+
+
+		#region Properties
+
+		public ApnsEnvironment Environment { get; }
+		public string Host { get; private set; }
+
+		public string KeyId { get; }
+		public string TeamId { get; }
+		public string BundleAppId { get; }
+
+		public ECDsa PrivateKey { get; }
+
+		public string JwtToken { get; private set; }
+		public DateTime JwtTokenDate { get; private set; }
+
+		#endregion
+
+
+		#region Ctor
+
+		public ApnsPusher(string keyId, string teamId, string bundleAppId, string certificatePath, string certificatePassword, ApnsEnvironment environment, int port = 443)
+		{
+			Environment = environment;
+			KeyId = keyId;
+			TeamId = teamId;
+			BundleAppId = bundleAppId;
+
+			switch (Environment)
+			{
+				case ApnsEnvironment.Production:
+					Host = ProductionUrl + "/3/device/";
+					break;
+
+				case ApnsEnvironment.Sandbox:
+					Host = SandboxUrl + "/3/device/";
+					break;
+			}
+
+			var certificate = new X509Certificate2(certificatePath, certificatePassword);
+			PrivateKey = certificate.GetECDsaPrivateKey();
+
+			if (PrivateKey == null)
+				throw new ArgumentException("Certificate does not contains ECDsa private key.");
+		}
+
+		#endregion
+
+
+		#region Logic
+
+		public async void SendNotification(ApnsNotification notification, string token)
+		{
+			if (DateTime.Now.Subtract(JwtTokenDate).TotalHours > 1)
+			{
+				JwtToken = GenerateNewJwtToken();
+			}
+
+			var payload = JObject.FromObject(notification);
+			var payloadBytes = new ByteArrayContent(Encoding.UTF8.GetBytes(payload.ToString()));
+
+			var uri = new Uri(Host + token);
+
+			try {
+				using (var handler = new Http2Handler())
+				using (var client = new HttpClient(handler))
+				{
+					// Prepare HTTP Request
+					var request = new HttpRequestMessage(HttpMethod.Post, uri);
+					request.Headers.Add("authorization", $"bearer {token}");
+					request.Headers.Add("apns-id", Guid.NewGuid().ToString());
+					request.Headers.Add("apns-expiration", "0");
+					request.Headers.Add("apns-priority", "10");
+					request.Headers.Add("apns-topic", BundleAppId);
+					request.Content = payloadBytes;
+
+					// Send request
+					var response = await client.SendAsync(request);
+
+					// Handle response
+					var apnsResult = (ApnsResult)response.StatusCode;
+
+					if (apnsResult == ApnsResult.Success)
+					{
+						var args = new NotificationSuccessEventArgs<ApnsNotification>(notification);
+						OnNotificationSuccess?.Invoke(this, args);
+					}
+					else
+					{
+						var bodyRaw = await response.Content.ReadAsStringAsync();
+						var reason = JObject.Parse(bodyRaw).Value<string>("reason");
+						var args = new NotificationFailedEventArgs<ApnsNotification, ApnsResult>(notification, apnsResult, reason, null);
+						OnNotificationFailed?.Invoke(this, args);
+					}
+				}
+			} catch (Exception e) {
+				var args = new NotificationFailedEventArgs<ApnsNotification, ApnsResult>(notification, ApnsResult.UnknownError, null, e);
+				OnNotificationFailed?.Invoke(this, args);
+			}
+		}
+
+		#endregion
+
+
+		#region Tools
+
+		/// <summary>
+		/// Convert DateTime to Unix epoch.
+		/// </summary>
+		private long ToUnixEpochDate(DateTime date)
+		{
+			return (long)Math.Round((date.ToUniversalTime() - new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero)).TotalSeconds);
+		}
+
+		private string GenerateNewJwtToken()
+		{
+			var payload = new Dictionary<string, object>
+			{
+				{ "iss", TeamId },
+				{ "iat", ToUnixEpochDate(DateTime.UtcNow) }
+			};
+			var header = new Dictionary<string, object>
+			{
+				{ "alg", AlgorithmAsString },
+				{ "kid", KeyId }
+			};
+
+			return JWT.Encode(payload, PrivateKey, Algorithm, header);
+		}
+
+		public Task SendNotification(ApnsNotification notification)
+		{
+			throw new NotImplementedException();
+		}
+
+		#endregion
+	}
+}

@@ -9,4 +9,7 @@
         <PackageTags>push;apns;core</PackageTags>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="jose-jwt" Version="2.4.0" />
+  </ItemGroup>
 </Project>
