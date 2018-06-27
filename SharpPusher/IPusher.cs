@@ -21,10 +21,12 @@ namespace SharpPusher
 
 	public class NotificationSuccessEventArgs<T>: EventArgs
 	{
+		public string Token { get; }
 		public T Notification { get; }
 		
-		public NotificationSuccessEventArgs(T notification)
+		public NotificationSuccessEventArgs(string token, T notification)
 		{
+			Token = token;
 			Notification = notification;
 		}
 
@@ -32,13 +34,15 @@ namespace SharpPusher
 
 	public class NotificationFailedEventArgs<T, U> : EventArgs
 	{
+		public string Token { get; }
 		public T Notification { get; }
 		public U ResultCode { get; }
 		public string Reason { get; }
 		public Exception Exception { get; }
 		
-		public NotificationFailedEventArgs(T notification, U resultCode, string reason, Exception exception)
+		public NotificationFailedEventArgs(string token, T notification, U resultCode, string reason, Exception exception)
 		{
+			Token = token;
 			Notification = notification;
 			ResultCode = resultCode;
 			Reason = reason;

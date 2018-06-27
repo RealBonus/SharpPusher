@@ -118,19 +118,19 @@ namespace SharpPusher
 
 					if (apnsResult == ApnsResult.Success)
 					{
-						var args = new NotificationSuccessEventArgs<ApnsNotification>(notification);
+						var args = new NotificationSuccessEventArgs<ApnsNotification>(deviceToken, notification);
 						OnNotificationSuccess?.Invoke(this, args);
 					}
 					else
 					{
 						var bodyRaw = await response.Content.ReadAsStringAsync();
 						var body = JsonConvert.DeserializeObject<ApnsResponse>(bodyRaw);
-						var args = new NotificationFailedEventArgs<ApnsNotification, ApnsResult>(notification, apnsResult, body.Reason, null);
+						var args = new NotificationFailedEventArgs<ApnsNotification, ApnsResult>(deviceToken, notification, apnsResult, body.Reason, null);
 						OnNotificationFailed?.Invoke(this, args);
 					}
 				}
 			} catch (Exception e) {
-				var args = new NotificationFailedEventArgs<ApnsNotification, ApnsResult>(notification, ApnsResult.UnknownError, null, e);
+				var args = new NotificationFailedEventArgs<ApnsNotification, ApnsResult>(deviceToken, notification, ApnsResult.UnknownError, null, e);
 				OnNotificationFailed?.Invoke(this, args);
 			}
 		}
