@@ -4,9 +4,10 @@ using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Jose;
-using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 
 namespace SharpPusher
 {
@@ -14,14 +15,16 @@ namespace SharpPusher
 	{
 		#region Const
 
-		public readonly string SandboxUrl = "https://api.development.push.apple.com";
 		public readonly string ProductionUrl = "https://api.push.apple.com";
+		public readonly string SandboxUrl = "https://api.development.push.apple.com";
 
 		public readonly JwsAlgorithm Algorithm = JwsAlgorithm.ES256;
 		private readonly string AlgorithmAsString = "ES256";
 
 		public event NotificationSuccessHandler<ApnsNotification> OnNotificationSuccess;
 		public event NotificationFailedHandler<ApnsNotification, ApnsResult> OnNotificationFailed;
+
+		private JsonSerializerSettings _jsonSettings;
 
 		#endregion
 
@@ -55,11 +58,11 @@ namespace SharpPusher
 			switch (Environment)
 			{
 				case ApnsEnvironment.Production:
-					Host = ProductionUrl + "/3/device/";
+					Host = $"{ProductionUrl}:{port}/3/device/";
 					break;
 
 				case ApnsEnvironment.Sandbox:
-					Host = SandboxUrl + "/3/device/";
+					Host = $"{SandboxUrl}:{port}/3/device/";
 					break;
 			}
 
@@ -68,6 +71,12 @@ namespace SharpPusher
 
 			if (PrivateKey == null)
 				throw new ArgumentException("Certificate does not contains ECDsa private key.");
+
+			_jsonSettings = new JsonSerializerSettings
+			{
+				Formatting = Formatting.None,
+				NullValueHandling = NullValueHandling.Ignore
+			};
 		}
 
 		#endregion
@@ -80,10 +89,11 @@ namespace SharpPusher
 			if (DateTime.Now.Subtract(JwtTokenDate).TotalHours > 1)
 			{
 				JwtToken = GenerateNewJwtToken();
+				JwtTokenDate = DateTime.Now;
 			}
 
-			var payload = JObject.FromObject(notification);
-			var payloadBytes = new ByteArrayContent(Encoding.UTF8.GetBytes(payload.ToString()));
+			var payload = JsonConvert.SerializeObject(notification, _jsonSettings);
+			var payloadBytes = new ByteArrayContent(Encoding.UTF8.GetBytes(payload));
 
 			var uri = new Uri(Host + deviceToken);
 
@@ -114,8 +124,8 @@ namespace SharpPusher
 					else
 					{
 						var bodyRaw = await response.Content.ReadAsStringAsync();
-						var reason = JObject.Parse(bodyRaw).Value<string>("reason");
-						var args = new NotificationFailedEventArgs<ApnsNotification, ApnsResult>(notification, apnsResult, reason, null);
+						var body = JsonConvert.DeserializeObject<ApnsResponse>(bodyRaw);
+						var args = new NotificationFailedEventArgs<ApnsNotification, ApnsResult>(notification, apnsResult, body.Reason, null);
 						OnNotificationFailed?.Invoke(this, args);
 					}
 				}

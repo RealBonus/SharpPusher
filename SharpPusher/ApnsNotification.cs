@@ -6,6 +6,15 @@ namespace SharpPusher
 	public class ApnsNotification
 	{
 		/// <summary>
+		/// Contains Apple-defined keys and is used to determine how the system receiving the notification should alert the user, if at all.
+		/// </summary>
+		[JsonProperty("aps")]
+		public ApnsPayload Payload { get; set; }
+	}
+
+	public class ApnsPayload
+	{
+		/// <summary>
 		/// Include this key when you want the system to display a standard alert or a banner.
 		/// The notification settings for your app on the user’s device determine whether an alert or banner is displayed.
 		/// </summary>
