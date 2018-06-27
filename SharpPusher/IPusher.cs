@@ -10,7 +10,7 @@ namespace SharpPusher
 	/// </summary>
 	public interface IPusher<T, U>
 	{
-		Task SendNotification(T notification);
+		Task SendNotificationAsync(T notification, string deviceToken);
 
 		event NotificationSuccessHandler<T> OnNotificationSuccess;
 		event NotificationFailedHandler<T, U> OnNotificationFailed;

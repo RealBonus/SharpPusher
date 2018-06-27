@@ -75,7 +75,7 @@ namespace SharpPusher
 
 		#region Logic
 
-		public async void SendNotification(ApnsNotification notification, string token)
+		public async Task SendNotificationAsync(ApnsNotification notification, string deviceToken)
 		{
 			if (DateTime.Now.Subtract(JwtTokenDate).TotalHours > 1)
 			{
@@ -85,7 +85,7 @@ namespace SharpPusher
 			var payload = JObject.FromObject(notification);
 			var payloadBytes = new ByteArrayContent(Encoding.UTF8.GetBytes(payload.ToString()));
 
-			var uri = new Uri(Host + token);
+			var uri = new Uri(Host + deviceToken);
 
 			try {
 				using (var handler = new Http2Handler())
@@ -93,7 +93,7 @@ namespace SharpPusher
 				{
 					// Prepare HTTP Request
 					var request = new HttpRequestMessage(HttpMethod.Post, uri);
-					request.Headers.Add("authorization", $"bearer {token}");
+					request.Headers.Add("authorization", $"bearer {JwtToken}");
 					request.Headers.Add("apns-id", Guid.NewGuid().ToString());
 					request.Headers.Add("apns-expiration", "0");
 					request.Headers.Add("apns-priority", "10");
@@ -152,11 +152,6 @@ namespace SharpPusher
 			};
 
 			return JWT.Encode(payload, PrivateKey, Algorithm, header);
-		}
-
-		public Task SendNotification(ApnsNotification notification)
-		{
-			throw new NotImplementedException();
 		}
 
 		#endregion

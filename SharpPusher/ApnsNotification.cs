@@ -72,7 +72,7 @@ namespace SharpPusher
 		/// <summary>
 		/// Variable string values to appear in place of the format specifiers in title-loc-key.
 		/// </summary>
-		[JsonProperty("title-loc-key")]
+		[JsonProperty("title-loc-args")]
 		public string[] TitleLocalizationArgs { get; set; }
 
 		/// <summary>
