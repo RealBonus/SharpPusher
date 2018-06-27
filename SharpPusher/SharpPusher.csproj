@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netcoreapp2.0</TargetFramework>
         <PackageId>SharpPusher</PackageId>
-        <Version>0.1.0</Version>
+        <Version>0.1.1</Version>
         <Authors>RealBonus</Authors>
         <RepositoryUrl>https://github.com/RealBonus/SharpPusher</RepositoryUrl>
         <PackageTags>push;apns;core</PackageTags>
