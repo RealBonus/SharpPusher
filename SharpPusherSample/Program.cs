@@ -1,12 +1,18 @@
 ﻿using System;
-using System.Threading.Tasks;
+using Newtonsoft.Json;
 using SharpPusher;
 
 namespace SharpPusherSample
 {
-	class Program
+    class ExtendedApnsNotification : ApnsNotification
+    {
+        [JsonProperty("txn-id")]
+        public string TxnId { get; set; }
+    }
+
+    class Program
 	{
-		static async Task Main(string[] args)
+		static void Main(string[] args)
 		{
 			var keyId = "";
 			var teamId = "";
@@ -18,8 +24,8 @@ namespace SharpPusherSample
 
 			var pusher = new ApnsPusher(keyId, teamId, bundleAppId, keyPath, keyPassword, ApnsEnvironment.Production);
 
-			var notification = new ApnsNotification
-			{
+			var notification = new ExtendedApnsNotification
+            {
 				Payload = new ApnsPayload
 				{
 					Alert = new ApnsNotificationAlert
@@ -27,15 +33,17 @@ namespace SharpPusherSample
 						TitleLocalizationKey = "NotificationsService.NewMessage.Title",
 						BodyLocalizationKey = "NotificationsService.NewMessage.BodySingle"
 					},
-					Badge = 7
-				}
-			};
+					Badge = 7,
+                    MutableContent = 1
+                },
+                TxnId = ""
+            };
 
 			pusher.OnNotificationSuccess += OnNotificationSuccess;
 			pusher.OnNotificationFailed += OnNotificationFailed;
 
 			Console.WriteLine("Sending notification...");
-			await pusher.SendNotificationAsync(notification, deviceToken);
+			pusher.SendNotificationAsync(notification, deviceToken);
 		}
 
 		static void OnNotificationSuccess(object sender, NotificationSuccessEventArgs<ApnsNotification> args)

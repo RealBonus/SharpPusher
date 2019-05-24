@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace SharpPusher
 {
@@ -10,9 +10,18 @@ namespace SharpPusher
 	/// </summary>
 	public interface IPusher<T, U>
 	{
-		Task SendNotificationAsync(T notification, string deviceToken);
+        /// <summary>
+        /// Sends the notification on backgroun thread.
+        /// </summary>
+		void SendNotificationAsync(T notification, string deviceToken);
 
-		event NotificationSuccessHandler<T> OnNotificationSuccess;
+        /// <summary>
+        /// Sends the notifications on backgroun thread.
+        /// </summary>
+        void SendNotificationsAsync(IEnumerable<(ApnsNotification notification, string token)> notifications);
+
+
+        event NotificationSuccessHandler<T> OnNotificationSuccess;
 		event NotificationFailedHandler<T, U> OnNotificationFailed;
 	}
 
