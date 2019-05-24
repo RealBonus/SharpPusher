@@ -79,19 +79,51 @@ namespace SharpPusher
 			};
 		}
 
-		#endregion
+        #endregion
 
 
-		#region Logic
+        #region Logic
 
-		public async Task SendNotificationAsync(ApnsNotification notification, string deviceToken)
+        private readonly object jwtLock = new object();
+
+        /// <summary>
+        /// Packet send
+        /// </summary>
+        public void SendNotificationsAsync(IEnumerable<(ApnsNotification notification, string token)> notifications) {
+            lock (jwtLock)
+            {
+                if (DateTime.Now.Subtract(JwtTokenDate).TotalHours > 1)
+                {
+                    JwtToken = GenerateNewJwtToken();
+                    JwtTokenDate = DateTime.Now;
+                }
+            }
+
+            foreach (var pair in notifications)
+            {
+                Task.Run(() => SendNotificationInternal(pair.notification, pair.token));
+            }
+        }
+
+        /// <summary>
+        /// Send single notification
+        /// </summary>
+        public void SendNotificationAsync(ApnsNotification notification, string deviceToken)
+        {
+            lock (jwtLock)
+            {
+                if (DateTime.Now.Subtract(JwtTokenDate).TotalHours > 1)
+                {
+                    JwtToken = GenerateNewJwtToken();
+                    JwtTokenDate = DateTime.Now;
+                }
+            }
+
+            Task.Run(() => SendNotificationInternal(notification, deviceToken));
+        }
+
+        private async Task SendNotificationInternal(ApnsNotification notification, string deviceToken)
 		{
-			if (DateTime.Now.Subtract(JwtTokenDate).TotalHours > 1)
-			{
-				JwtToken = GenerateNewJwtToken();
-				JwtTokenDate = DateTime.Now;
-			}
-
 			var payload = JsonConvert.SerializeObject(notification, _jsonSettings);
 			var payloadBytes = new ByteArrayContent(Encoding.UTF8.GetBytes(payload));
 
@@ -103,12 +135,15 @@ namespace SharpPusher
 				{
 					// Prepare HTTP Request
 					var request = new HttpRequestMessage(HttpMethod.Post, uri);
-					request.Headers.Add("authorization", $"bearer {JwtToken}");
-					request.Headers.Add("apns-id", Guid.NewGuid().ToString());
-					request.Headers.Add("apns-expiration", "0");
-					request.Headers.Add("apns-priority", "10");
-					request.Headers.Add("apns-topic", BundleAppId);
-					request.Content = payloadBytes;
+                    request.Headers.Add("apns-id", Guid.NewGuid().ToString());
+                    request.Headers.Add("apns-expiration", "0");
+                    request.Headers.Add("apns-priority", "10");
+                    request.Headers.Add("apns-topic", BundleAppId);
+                    request.Content = payloadBytes;
+
+                    lock (jwtLock) {
+                        request.Headers.Add("authorization", $"bearer {JwtToken}");
+                    }
 
 					// Send request
 					var response = await client.SendAsync(request);
@@ -164,6 +199,6 @@ namespace SharpPusher
 			return JWT.Encode(payload, PrivateKey, Algorithm, header);
 		}
 
-		#endregion
-	}
+        #endregion
+    }
 }

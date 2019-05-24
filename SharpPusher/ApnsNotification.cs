@@ -55,6 +55,12 @@ namespace SharpPusher
 		/// </summary>
 		[JsonProperty("thread-id")]
 		public string ThreadId { get; set; }
+
+        /// <summary>
+        /// Provide this key with a value of 1 to configure a mutable notification content on client side with NotificationServiceExtension.
+        /// </summary>
+        [JsonProperty("mutable-content")]
+        public int? MutableContent { get; set; }
 	}
 
 	public class ApnsNotificationAlert
